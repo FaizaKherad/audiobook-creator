@@ -171,19 +171,29 @@ export default function Home() {
         setExtractionProgress(progress);
       });
 
+      if (!result.text || result.text.trim().length < 10) {
+        alert('Could not extract enough text from this PDF. It might be a scanned image or an empty document.');
+        setIsLoading(false);
+        setExtractionProgress(0);
+        return;
+      }
+
       // Simple heuristic for English detection
       const textSample = result.text.substring(0, 3000).toLowerCase();
-      const commonEnglishWords = [' the ', ' and ', ' that ', ' have ', ' for ', ' with ', ' was ', ' this '];
+      const commonEnglishWords = [' the ', ' and ', ' that ', ' have ', ' for ', ' with ', ' was ', ' this ', ' of ', ' to '];
       const englishWordCount = commonEnglishWords.filter(word => textSample.includes(word)).length;
       
       // Check for non-Latin scripts (Arabic/Urdu, Hindi, Cyrillic, Chinese, Japanese, Korean)
       const hasNonLatinScript = /[\u0600-\u06FF\u0900-\u097F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u309F\uAC00-\uD7AF]/.test(result.text.substring(0, 1000));
 
-      if (hasNonLatinScript || englishWordCount < 3) {
-        alert('Only books in English can be read. Please upload an English PDF.');
-        setIsLoading(false);
-        setExtractionProgress(0);
-        return;
+      // Be a bit more lenient but still warn
+      if (hasNonLatinScript || englishWordCount < 2) {
+        const proceed = confirm('This PDF doesn\'t seem to be in English. The text-to-speech might not work correctly. Do you want to try anyway?');
+        if (!proceed) {
+          setIsLoading(false);
+          setExtractionProgress(0);
+          return;
+        }
       }
 
       setFile(selectedFile);
@@ -195,7 +205,7 @@ export default function Home() {
       // Auto-play will be handled by useEffect when fullText and currentIndex are ready
     } catch (error) {
       console.error('Error processing PDF:', error);
-      alert('Failed to process PDF. Please try another file.');
+      alert('Failed to process PDF. Technical error: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsLoading(false);
       setExtractionProgress(0);
