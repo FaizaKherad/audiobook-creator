@@ -34,13 +34,12 @@ export default function AuthPage() {
   const router = useRouter();
 
   const handleGoogleLogin = () => {
-    setIsLoading(true);
-    // Simulate a brief delay for a 'real' feel
-    setTimeout(() => {
-      login('user@gmail.com', 'Demo User');
-      router.push('/');
-    }, 1500);
+    window.location.href = '/api/auth/google';
   };
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const error = searchParams.get('error');
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +83,11 @@ export default function AuthPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-secondary py-8 px-4 shadow-xl shadow-border/50 sm:rounded-2xl sm:px-10 border border-border">
+          {error && (
+            <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm text-center animate-in fade-in slide-in-from-top-2">
+              Authentication failed: {error.replace('_', ' ')}
+            </div>
+          )}
           <form className="space-y-6" onSubmit={handleSubmit}>
             {!isLogin && (
               <div>

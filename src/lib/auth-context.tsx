@@ -11,7 +11,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, name?: string) => void;
+  login: (email: string, name?: string, image?: string) => void;
   logout: () => void;
   updateUser: (updates: Partial<User>) => void;
 }
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = (email: string, name?: string) => {
+  const login = (email: string, name?: string, image?: string) => {
     // 1. Get the 'database' of users
     const usersDbRaw = localStorage.getItem(USERS_DB_KEY);
     const usersDb: Record<string, User> = usersDbRaw ? JSON.parse(usersDbRaw) : {};
@@ -56,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentUser = {
         email,
         name: name || email.split('@')[0],
+        image: image,
       };
     }
 
