@@ -1,7 +1,6 @@
 'use client';
 
 import { ThemeProvider } from 'next-themes';
-import { AuthProvider } from '@/lib/auth-context';
 import { ReadingProvider } from '@/lib/reading-context';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -15,11 +14,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         suppressHydrationWarning: true,
       }}
     >
-      <AuthProvider>
-        <ReadingProvider>
-          {children}
-        </ReadingProvider>
-      </AuthProvider>
+      <ReadingProvider>
+        {children}
+      </ReadingProvider>
     </ThemeProvider>
   );
 }

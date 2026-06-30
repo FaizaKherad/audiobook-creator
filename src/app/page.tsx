@@ -9,7 +9,6 @@ import { StreakBadge } from '@/components/StreakBadge';
 import { AudioControls } from '@/components/AudioControls';
 import { extractTextFromPDF, Word, PDFMetadata, HistoryItem, StreakData } from '@/lib/pdf-utils';
 import { useTTS } from '@/hooks/useTTS';
-import { useAuth } from '@/lib/auth-context';
 import { useReading } from '@/lib/reading-context';
 import { Book, ChevronLeft, Layout, Type, LogOut, ArrowRight } from 'lucide-react';
 
@@ -20,7 +19,6 @@ const HISTORY_KEY = 'audiobook_reading_history';
 const STREAK_KEY = 'audiobook_reading_streak';
 
 export default function Home() {
-  const { user } = useAuth();
   const {
     file, setFile,
     paragraphs, setParagraphs,
@@ -271,30 +269,6 @@ export default function Home() {
     stop();
     resetReading();
   }, [stop, resetReading]);
-
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 text-center min-h-[90vh]">
-        <div className="bg-accent/10 p-4 rounded-3xl mb-6">
-          <Book className="w-12 h-12 text-accent" />
-        </div>
-        <h1 className="text-4xl font-bold text-foreground mb-4 font-heading tracking-tight">
-          Audiobook Creator
-        </h1>
-        <p className="text-lg text-foreground/70 max-w-md mb-10 leading-relaxed">
-          Transform your PDFs into immersive listening experiences. 
-          Sign in to start reading.
-        </p>
-        <Link 
-          href="/auth" 
-          className="px-10 py-4 bg-accent text-white rounded-2xl font-bold shadow-lg shadow-accent/20 hover:scale-105 transition-all flex items-center gap-2 group"
-        >
-          Get Started
-          <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-        </Link>
-      </div>
-    );
-  }
 
   if (!file) {
     return (
