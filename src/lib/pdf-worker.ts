@@ -43,7 +43,7 @@ self.onmessage = async function(e) {
 
       if (i === 1) metadataText = pageText;
       if (i >= startPage) {
-        const pageParagraphs = pageText.split('\n\n+');
+        const pageParagraphs = pageText.split(/\n\n+/);
         for (const pText of pageParagraphs) {
           if (!pText.trim()) continue;
           
