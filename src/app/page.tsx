@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { FileUpload } from '@/components/FileUpload';
 import { ReadingHistory } from '@/components/ReadingHistory';
 import { StreakBadge } from '@/components/StreakBadge';
 import { AudioControls } from '@/components/AudioControls';
+import { Notification } from '@/components/Notification';
 import { extractTextFromPDF, Word, PDFMetadata, HistoryItem, StreakData } from '@/lib/pdf-utils';
 import { useTTS } from '@/hooks/useTTS';
 import { useReading } from '@/lib/reading-context';
@@ -25,18 +26,18 @@ export default function Home() {
     fullText, setFullText,
     metadata, setMetadata,
     currentIndex, setCurrentIndex,
-    viewMode, setViewMode,
     rate, setRate,
     pitch, setPitch,
     voiceGender, setVoiceGender,
-    skipFirstPage, setSkipFirstPage,
-    resetReading
+    resetReading,
+    notification, setNotification
   } = useReading();
 
   const [isLoading, setIsLoading] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [streak, setStreak] = useState<StreakData>({ currentStreak: 0, lastReadDate: '', bestStreak: 0 });
+  const hasAutoPlayed = useRef(false);
 
   const { isPlaying, isPaused, currentCharIndex, voices, play, pause, resume, stop } = useTTS();
 
@@ -164,8 +165,10 @@ export default function Home() {
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     setIsLoading(true);
     setExtractionProgress(0);
+    setCurrentIndex(-1); // Reset index to avoid carry-over from previous book
+    hasAutoPlayed.current = false;
     try {
-      const result = await extractTextFromPDF(selectedFile, { skipFirstPage }, (progress) => {
+      const result = await extractTextFromPDF(selectedFile, { skipFirstPage: false }, (progress) => {
         setExtractionProgress(progress);
       });
 
@@ -208,7 +211,7 @@ export default function Home() {
       setIsLoading(false);
       setExtractionProgress(0);
     }
-  }, [saveToHistory, skipFirstPage, setFile, setParagraphs, setFullText, setMetadata]);
+  }, [saveToHistory, setFile, setParagraphs, setFullText, setMetadata]);
 
   const handlePlay = useCallback((startIndex?: number) => {
     const startFrom = startIndex !== undefined ? startIndex : (currentIndex > 0 ? currentIndex : 0);
@@ -225,9 +228,25 @@ export default function Home() {
     }
   }, [fullText, play, rate, pitch, voiceGender, getVoiceForGender, currentIndex]);
 
+  const handlePageChange = useCallback((pageNumber: number) => {
+    const targetParagraph = paragraphs.find(p => p.pageNumber === pageNumber);
+    if (targetParagraph) {
+      setCurrentIndex(targetParagraph.startIndex);
+    }
+  }, [paragraphs, setCurrentIndex]);
+
+  const jumpToPage = useCallback((pageNumber: number) => {
+    const targetParagraph = paragraphs.find(p => p.pageNumber === pageNumber);
+    if (targetParagraph) {
+      setCurrentIndex(targetParagraph.startIndex);
+      handlePlay(targetParagraph.startIndex);
+    }
+  }, [paragraphs, setCurrentIndex, handlePlay]);
+
   // Auto-play when file is loaded
   useEffect(() => {
-    if (fullText && currentIndex >= 0 && !isPlaying && !isPaused) {
+    if (fullText && currentIndex >= 0 && !isPlaying && !isPaused && !hasAutoPlayed.current) {
+      hasAutoPlayed.current = true;
       // Small delay to ensure voices are loaded and state is settled
       const timer = setTimeout(() => {
         handlePlay(currentIndex);
@@ -237,19 +256,18 @@ export default function Home() {
   }, [fullText, currentIndex, handlePlay, isPlaying, isPaused]);
 
   const handleHistorySelect = useCallback((item: HistoryItem) => {
+    console.log('Home: History item selected', item);
     setMetadata(item.metadata);
-    // If the currently loaded file matches this history item, we can just jump to the saved position
-    // Otherwise, the user will see the metadata in the header but need to upload the file.
-    // However, if we are in the same session, the file might still be there.
     if (metadata?.title === item.metadata.title) {
       // Already loaded
     } else {
-      // Clear current file if it's different
       setFile(null);
       setParagraphs([]);
       setFullText('');
+      console.log('Home: Setting notification message');
+      setNotification("Upload this book in PDF Form to start listening where you left off");
     }
-  }, [metadata, setFile, setParagraphs, setFullText, setMetadata]);
+  }, [metadata, setFile, setParagraphs, setFullText, setMetadata, setNotification]);
 
   const handleRateChange = useCallback((newRate: number) => {
     setRate(newRate);
@@ -272,7 +290,7 @@ export default function Home() {
 
   if (!file) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 min-h-[80vh]">
+      <div className="flex flex-col items-center justify-center p-6 min-h-[80vh] relative">
         <div className="w-full max-w-2xl flex flex-col items-center">
           <div className="mb-12 text-center">
             <div className="inline-block bg-accent/10 p-3 rounded-2xl mb-4">
@@ -300,20 +318,8 @@ export default function Home() {
               </div>
             )}
           </div>
-          
-          <div className="mt-8 flex items-center gap-3 bg-secondary/50 px-5 py-3 rounded-2xl border border-border/50">
-            <input 
-              type="checkbox" 
-              id="skipPage" 
-              checked={skipFirstPage}
-              onChange={(e) => setSkipFirstPage(e.target.checked)}
-              className="w-5 h-5 rounded border-border accent-accent focus:ring-accent cursor-pointer"
-            />
-            <label htmlFor="skipPage" className="text-sm font-bold text-foreground/70 cursor-pointer">
-              Skip first page (usually metadata/intro)
-            </label>
-          </div>
         </div>
+        <Notification message={notification} onClose={() => setNotification(null)} />
       </div>
     );
   }
@@ -340,45 +346,34 @@ export default function Home() {
         </div>
         
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-secondary p-1 rounded-lg">
-            <button
-              onClick={() => setViewMode('reader')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                viewMode === 'reader' 
-                  ? 'bg-background shadow-sm text-foreground' 
-                  : 'text-foreground/70 hover:text-foreground'
-              }`}
-            >
-              <Type className="w-4 h-4" />
-              Reader
-            </button>
-            <button
-              onClick={() => setViewMode('pdf')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                viewMode === 'pdf' 
-                  ? 'bg-background shadow-sm text-foreground' 
-                  : 'text-foreground/70 hover:text-foreground'
-              }`}
-            >
-              <Layout className="w-4 h-4" />
-              PDF
-            </button>
+          <div className="flex items-center gap-2 bg-secondary p-1 rounded-lg border border-border">
+            <div className="px-2 py-1.5 border-r border-border text-xs font-bold text-foreground/60">
+              Page {paragraphs.find(p => currentIndex >= p.startIndex && currentIndex < p.endIndex)?.pageNumber || 1}
+            </div>
+            <input 
+              type="number" 
+              placeholder="Page..."
+              className="w-16 px-2 py-1.5 bg-background border border-border rounded-md text-xs font-medium focus:outline-none focus:ring-1 focus:ring-accent"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = parseInt((e.target as HTMLInputElement).value, 10);
+                  if (!isNaN(val)) jumpToPage(val);
+                }
+              }}
+            />
+            <span className="text-[10px] font-bold text-foreground/50 px-1 uppercase">Jump</span>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 relative pb-44">
-        {viewMode === 'reader' ? (
-          <ReaderView 
-            fullText={fullText} 
-            paragraphs={paragraphs}
-            onWordClick={(startIndex) => handlePlay(startIndex)}
-            currentIndex={currentIndex}
-            isPlaying={isPlaying}
+        {file && (
+          <PDFViewer 
+            file={file} 
+            currentPage={paragraphs.find(p => currentIndex >= p.startIndex && currentIndex < p.endIndex)?.pageNumber || 1} 
+            onPageChange={handlePageChange}
           />
-        ) : (
-          file && <PDFViewer file={file} />
         )}
       </main>
 
@@ -390,15 +385,11 @@ export default function Home() {
           onPlay={handlePlay}
           onPause={pause}
           onResume={resume}
-          onStop={stop}
           rate={rate}
           onRateChange={handleRateChange}
-          pitch={pitch}
-          onPitchChange={handlePitchChange}
-          voiceGender={voiceGender}
-          onVoiceGenderChange={setVoiceGender}
         />
       </div>
+      <Notification message={notification} onClose={() => setNotification(null)} />
     </div>
   );
 }

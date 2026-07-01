@@ -33,6 +33,7 @@ export interface Paragraph {
   words: Word[];
   startIndex: number;
   endIndex: number;
+  pageNumber: number;
 }
 
 export async function extractTextFromPDF(
@@ -107,35 +108,76 @@ export async function extractTextFromPDF(
   const paragraphs: Paragraph[] = [];
   const rawParagraphs = fullText.split(/\n\n+/);
   let currentOffset = 0;
+  
+  // We need to map the final fullText back to page numbers.
+  // Since we concatenated pageText + '\n\n', we can approximate this.
+  // A better way is to process paragraphs per page.
+  
+  // Let's re-extract specifically for paragraphs to keep page numbers accurate
+  const finalParagraphs: Paragraph[] = [];
+  let globalOffset = 0;
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    if (i < startPage) continue;
+    
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const viewport = page.getViewport({ scale: 1.0 });
+    
+    let pageText = '';
+    let lastY: number | null = null;
+    let lastX: number | null = null;
 
-  for (const pText of rawParagraphs) {
-    if (!pText.trim()) continue;
-    
-    const pStartIndex = fullText.indexOf(pText, currentOffset);
-    const pEndIndex = pStartIndex + pText.length;
-    
-    const pWords: Word[] = [];
-    const wordMatches = pText.matchAll(/\S+/g);
-    
-    for (const match of wordMatches) {
-      const wordText = match[0];
-      const wordStartInP = match.index!;
-      pWords.push({
-        text: wordText,
-        startIndex: pStartIndex + wordStartInP,
-        endIndex: pStartIndex + wordStartInP + wordText.length
-      });
+    for (const item of textContent.items as any[]) {
+      const x = item.transform[4];
+      const y = item.transform[5];
+      const height = item.height;
+      if (y < 30 || y > viewport.height - 30) continue;
+      if (lastY !== null) {
+        if (Math.abs(y - lastY) > height * 1.5) pageText += '\n\n';
+        else if (Math.abs(y - lastY) > 2) pageText += '\n';
+        else if (lastX !== null && x > lastX + 2) {
+          if (!item.str.startsWith(' ') && !pageText.endsWith(' ')) pageText += ' ';
+        }
+      }
+      pageText += item.str;
+      lastY = y;
+      lastX = x + (item.width || 0);
     }
 
-    paragraphs.push({
-      text: pText,
-      words: pWords,
-      startIndex: pStartIndex,
-      endIndex: pEndIndex
-    });
-    
-    currentOffset = pEndIndex;
+    const pageParagraphs = pageText.split(/\n\n+/);
+    for (const pText of pageParagraphs) {
+      if (!pText.trim()) continue;
+      
+      const pStartIndex = globalOffset + pageText.indexOf(pText);
+      const pEndIndex = pStartIndex + pText.length;
+      
+      const pWords: Word[] = [];
+      const wordMatches = pText.matchAll(/\S+/g);
+      for (const match of wordMatches) {
+        const wordText = match[0];
+        const wordStartInP = match.index!;
+        pWords.push({
+          text: wordText,
+          startIndex: pStartIndex + wordStartInP,
+          endIndex: pStartIndex + wordStartInP + wordText.length
+        });
+      }
+
+      finalParagraphs.push({
+        text: pText,
+        words: pWords,
+        startIndex: pStartIndex,
+        endIndex: pEndIndex,
+        pageNumber: i
+      });
+    }
+    globalOffset += pageText.length + 2; // +2 for the '\n\n' we added in the first pass
   }
+
+  // Note: the first pass was to get the 'fullText' for the reader. 
+  // Let's just use the reconstructed text from finalParagraphs for consistency.
+  const reconstructedFullText = finalParagraphs.map(p => p.text).join('\n\n');
 
   // Improved metadata extraction with heuristics (keeping existing logic)
   const metadata = await pdf.getMetadata();
@@ -143,7 +185,7 @@ export async function extractTextFromPDF(
   let title = (metadata.info as any)?.Title;
 
   if (!author || author === 'Unknown' || author.trim() === '') {
-    const scanText = metadataText || fullText.substring(0, 2000);
+    const scanText = metadataText || reconstructedFullText.substring(0, 2000);
     const authorPatterns = [
       /(?:author|written\s+by|by)\s*[:\-]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})/i,
       /\n([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\n\s*(?:©|Copyright|All\s+rights)/i
@@ -190,8 +232,8 @@ export async function extractTextFromPDF(
   }
 
   return {
-    text: fullText,
-    paragraphs,
+    text: reconstructedFullText,
+    paragraphs: finalParagraphs,
     metadata: {
       title: title || file.name,
       author: author || 'Unknown Author',

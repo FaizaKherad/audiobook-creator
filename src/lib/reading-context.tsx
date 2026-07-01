@@ -13,7 +13,6 @@ interface ReadingState {
   rate: number;
   pitch: number;
   voiceGender: 'male' | 'female';
-  skipFirstPage: boolean;
 }
 
 interface ReadingContextType extends ReadingState {
@@ -26,8 +25,9 @@ interface ReadingContextType extends ReadingState {
   setRate: (rate: number) => void;
   setPitch: (pitch: number) => void;
   setVoiceGender: (gender: 'male' | 'female') => void;
-  setSkipFirstPage: (skip: boolean) => void;
   resetReading: () => void;
+  notification: string | null;
+  setNotification: (message: string | null) => void;
 }
 
 const ReadingContext = createContext<ReadingContextType | undefined>(undefined);
@@ -43,8 +43,8 @@ export function ReadingProvider({ children }: { children: React.ReactNode }) {
   const [viewMode, setViewMode] = useState<'reader' | 'pdf'>('reader');
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
-  const [voiceGender, setVoiceGender] = useState<'male' | 'female'>('female');
-  const [skipFirstPage, setSkipFirstPage] = useState(true);
+  const [voiceGender, setVoiceGender] = useState<'female'>('female');
+  const [notification, setNotification] = useState<string | null>(null);
 
   // Load progress when metadata changes
   useEffect(() => {
@@ -52,9 +52,11 @@ export function ReadingProvider({ children }: { children: React.ReactNode }) {
       const savedProgress = localStorage.getItem(PROGRESS_KEY_PREFIX + metadata.title);
       if (savedProgress) {
         setCurrentIndex(parseInt(savedProgress, 10));
+      } else {
+        setCurrentIndex(-1);
       }
     }
-  }, [metadata]);
+  }, [metadata, setCurrentIndex]);
 
   // Save progress with debouncing
   useEffect(() => {
@@ -85,7 +87,6 @@ export function ReadingProvider({ children }: { children: React.ReactNode }) {
     rate,
     pitch,
     voiceGender,
-    skipFirstPage,
     setFile,
     setParagraphs,
     setFullText,
@@ -95,8 +96,9 @@ export function ReadingProvider({ children }: { children: React.ReactNode }) {
     setRate,
     setPitch,
     setVoiceGender,
-    setSkipFirstPage,
     resetReading,
+    notification,
+    setNotification,
   };
 
   return (

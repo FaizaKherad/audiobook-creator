@@ -11,7 +11,7 @@ export default function HistoryPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
-  const { setMetadata, setFile, setParagraphs, setFullText } = useReading();
+  const { setMetadata, setFile, setParagraphs, setFullText, setNotification } = useReading();
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('audiobook_reading_history');
@@ -29,6 +29,7 @@ export default function HistoryPage() {
     setFile(null);
     setParagraphs([]);
     setFullText('');
+    setNotification("Upload this book's pdf to read from where you left off");
     router.push('/');
   };
 
