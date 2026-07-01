@@ -42,7 +42,8 @@ export async function extractTextFromPDF(
   onProgress?: (progress: number) => void
 ): Promise<{ text: string; paragraphs: Paragraph[]; metadata: PDFMetadata }> {
   // Dynamic import to avoid server-side evaluation errors in Next.js
-  const pdfjs = await import('pdfjs-dist/build/pdf').then(m => m.default || m);
+  const pdfjsModule = await import('pdfjs-dist');
+  const pdfjs = (pdfjsModule as any).default || pdfjsModule;
   
   // Configure pdfjs worker to use local file copied to public
   pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
