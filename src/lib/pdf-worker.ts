@@ -30,11 +30,8 @@ self.onmessage = async function(e) {
         const height = item.height;
         if (y < 30 || y > viewport.height - 30) continue;
         if (lastY !== null) {
-          if (Math.abs(y - lastY) > height * 1.5) pageText += '
-
-';
-          else if (Math.abs(y - lastY) > 2) pageText += '
-';
+          if (Math.abs(y - lastY) > height * 1.5) pageText += '\n\n';
+          else if (Math.abs(y - lastY) > 2) pageText += '\n';
           else if (lastX !== null && x > lastX + 2) {
             if (!item.str.startsWith(' ') && !pageText.endsWith(' ')) pageText += ' ';
           }
@@ -46,9 +43,7 @@ self.onmessage = async function(e) {
 
       if (i === 1) metadataText = pageText;
       if (i >= startPage) {
-        const pageParagraphs = pageText.split('
-
-+');
+        const pageParagraphs = pageText.split('\n\n+');
         for (const pText of pageParagraphs) {
           if (!pText.trim()) continue;
           
@@ -77,9 +72,7 @@ self.onmessage = async function(e) {
       }
     }
 
-    const reconstructedFullText = finalParagraphs.map(p => p.text).join('
-
-');
+    const reconstructedFullText = finalParagraphs.map(p => p.text).join('\n\n');
     const metadata = await pdf.getMetadata();
     
     self.postMessage({

@@ -1,24 +1,7 @@
 import type { Metadata } from "next";
-import { Merriweather, Literata, Source_Serif_4 } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import { Sidebar } from "@/components/Sidebar";
 import "./globals.css";
-
-const merriweather = Merriweather({
-  variable: "--font-merriweather",
-  weight: ["300", "400", "700", "900"],
-  subsets: ["latin"],
-});
-
-const literata = Literata({
-  variable: "--font-literata",
-  subsets: ["latin"],
-});
-
-const sourceSerif = Source_Serif_4({
-  variable: "--font-source-serif",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Audiobook Creator",
@@ -34,7 +17,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${merriweather.variable} ${literata.variable} ${sourceSerif.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full font-body">
         <Providers>

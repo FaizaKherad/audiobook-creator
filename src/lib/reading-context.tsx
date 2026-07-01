@@ -43,7 +43,7 @@ export function ReadingProvider({ children }: { children: React.ReactNode }) {
   const [viewMode, setViewMode] = useState<'reader' | 'pdf'>('reader');
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
-  const [voiceGender, setVoiceGender] = useState<'female'>('female');
+  const [voiceGender, setVoiceGender] = useState<'male' | 'female'>('female');
   const [notification, setNotification] = useState<string | null>(null);
 
   // Load progress when metadata changes
